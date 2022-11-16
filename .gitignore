@@ -136,5 +136,6 @@ Deterministic_ab/
 Deterministic/data/
 .vscode
 
+checkpoints
 Diverse/data
 Diverse/out
