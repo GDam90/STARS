@@ -6,7 +6,7 @@ parser = argparse.ArgumentParser(description='Arguments for running the scripts'
 #ARGS FOR LOADING THE DATASET
 
 
-parser.add_argument('--data_dir',type=str,default='../datasets/',help='path to the unziped dataset directories(H36m)')
+parser.add_argument('--data_dir',type=str,default='./Deterministic/data',help='path to the unziped dataset directories(H36m)')
 parser.add_argument('--input_n',type=int,default=10,help="number of model's input frames")
 parser.add_argument('--output_n',type=int,default=10,help="number of model's output frames")
 parser.add_argument('--test_output_n',type=int,default=10,help="number of model's test frames")
