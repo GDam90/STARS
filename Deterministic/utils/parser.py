@@ -34,6 +34,11 @@ parser.add_argument('--clip_grad',type=float,default=None,help= 'select max norm
 parser.add_argument('--model_path',type=str,default='./checkpoints/CKPT_3D_H36M',help= 'directory with the models checkpoints ')
 parser.add_argument('--version',type=str,default='long',help= 'model version (long or short)')
 
+
+#ARGS FOR THE TRAINING
+
+parser.add_argument('--metric', type=str, default='ours', choices=['ours', 'literature'], help= 'choose if use only dim_used for evaluation (ours) [ours.traditional]')
+
 #FLAGS FOR THE VISUALIZATION
 
 parser.add_argument('--visualize_from',type=str,default='test',choices =['train','val','test'],help= 'choose data split to visualize from(train-val-test)')

@@ -7,18 +7,15 @@ import torch.autograd
 import torch
 import numpy as np
 from utils.loss_funcs import *
-from utils.data_utils import define_actions
+from utils.data_utils import define_actions, dim_used
 from utils.h36_3d_viz import visualize
 from utils.parser import args
 from tqdm import tqdm
 from model import Model
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 print('Using device: %s'%device)
-dim_used = np.array([0, 1, 2, 3, 4, 5, 18, 19, 20, 33, 34, 35, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25,
-                    26, 27, 28, 29, 30, 31, 32, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45,
-                    46, 47, 51, 52, 53, 54, 55, 56, 57, 58, 59, 63, 64, 65, 66, 67, 68,
-                    75, 76, 77, 78, 79, 80, 81, 82, 83, 87, 88, 89, 90, 91, 92])
+
 if not args.global_translation:
   dim_used = dim_used[12:]
   from utils import h36motion3d as datasets
@@ -163,11 +160,14 @@ def test():
 
         all_joints_seq[:,:,index_to_ignore] = all_joints_seq[:,:,index_to_equal]
 
-        loss=final_mpjpe_error(all_joints_seq.view(-1,args.output_n,32,3)[:,:args.test_output_n,:,:],sequences_gt.view(-1,args.output_n,32,3)[:,:args.test_output_n,:,:])
+        if args.metric == 'literature': 
+          loss=final_mpjpe_error(all_joints_seq.view(-1,args.output_n,32,3)[:,:args.test_output_n,:,:],sequences_gt.view(-1,args.output_n,32,3)[:,:args.test_output_n,:,:])
+        elif args.metric == 'ours':
+          loss=final_mpjpe_error(all_joints_seq[:,:, dim_used].view(-1,args.output_n,22,3)[:,:args.test_output_n,:,:],sequences_gt[:,:, dim_used].view(-1,args.output_n,22,3)[:,:args.test_output_n,:,:])
         running_loss+=loss*batch_dim
         accum_loss+=loss*batch_dim
 
-    print('loss at test subject for action : '+str(action)+ ' is: '+ str(running_loss/n))
+    print('loss at test subject for action : '+str(action)+ ' is: '+ str(running_loss.detach().cpu()/n))
     n_batches+=n
   print('overall average loss in mm is: '+str(accum_loss/n_batches))
 
