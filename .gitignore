@@ -133,6 +133,7 @@ dmypy.json
 *.DS_Store
 Deterministic_ab/
 *gifs/
+Deterministic/data/
 
 Diverse/data
 Diverse/out
