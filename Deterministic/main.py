@@ -118,7 +118,6 @@ def train():
         scheduler.step()
       
       
-      model.eval()
       if (epoch + 1) % args.val_every == 0:
         vald_error_on_test_frame = test(split="val")
         val_loss.append(vald_error_on_test_frame)
