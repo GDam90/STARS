@@ -135,7 +135,7 @@ Deterministic_ab/
 *gifs/
 Deterministic/data/
 .vscode
-
+wandb
 checkpoints
 Diverse/data
 Diverse/out

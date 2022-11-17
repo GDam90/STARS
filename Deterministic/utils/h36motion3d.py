@@ -14,7 +14,7 @@ https://github.com/wei-mao-2019/HisRepItself/blob/master/utils/h36motion3d.py
 
 class Datasets(Dataset):
 
-    def __init__(self, data_dir,input_n,output_n,skip_rate,actions=None,split=0):
+    def __init__(self, args, actions=None, split=0, verbose=True):
         """
         :param path_to_data:
         :param actions:
@@ -24,21 +24,22 @@ class Datasets(Dataset):
         :param split: 0 train, 1 testing, 2 validation
         :param sample_rate:
         """
-        self.path_to_data = os.path.join(data_dir,'h3.6m/dataset')
+        self.path_to_data = os.path.join(args.data_dir,'h3.6m/dataset')
         self.split = split
-        self.in_n = input_n
-        self.out_n = output_n
-        self.sample_rate = skip_rate
+        self.in_n = args.input_n
+        self.out_n = args.output_n
+        self.sample_rate = args.skip_rate
         self.p3d = {}
         self.data_idx = []
         seq_len = self.in_n + self.out_n
-        subs = np.array([[1, 6, 7, 8, 9], [11], [5]])
+        
+        if args.debug:
+            subs = [[1, 6], [11], [5]]
+        else:
+            subs = [[1, 6, 7, 8, 9], [11], [5]]
         # acts = data_utils.define_actions(actions)
         if actions is None:
-            acts = ["walking", "eating", "smoking", "discussion", "directions",
-                    "greeting", "phoning", "posing", "purchases", "sitting",
-                    "sittingdown", "takingphoto", "waiting", "walkingdog",
-                    "walkingtogether"]
+            acts = args.actions
         else:
             acts = actions
         # subs = np.array([[1], [11], [5]])
@@ -59,7 +60,8 @@ class Datasets(Dataset):
                 action = acts[action_idx]
                 if self.split <= 1:
                     for subact in [1, 2]:  # subactions
-                        print("Reading subject {0}, action {1}, subaction {2}".format(subj, action, subact))
+                        if verbose:
+                            print("Reading subject {0}, action {1}, subaction {2}".format(subj, action, subact))
                         filename = '{0}/S{1}/{2}_{3}.txt'.format(self.path_to_data, subj, action, subact)
                         the_sequence = data_utils.readCSVasFloat(filename)
                         n, d = the_sequence.shape
@@ -80,7 +82,8 @@ class Datasets(Dataset):
                             self.data_idx.extend(zip(tmp_data_idx_1, tmp_data_idx_2))
                             key += 1
                 else:
-                    print("Reading subject {0}, action {1}, subaction {2}".format(subj, action, 1))
+                    if verbose:
+                            print("Reading subject {0}, action {1}, subaction {2}".format(subj, action, 1))
                     filename = '{0}/S{1}/{2}_{3}.txt'.format(self.path_to_data, subj, action, 1)
                     the_sequence1 = data_utils.readCSVasFloat(filename)
                     n, d = the_sequence1.shape
@@ -94,7 +97,8 @@ class Datasets(Dataset):
                     # self.p3d[(subj, action, 1)] = p3d1.view(num_frames1, -1).cpu().data.numpy()
                     self.p3d[key] = p3d1.view(num_frames1, -1).cpu().data.numpy()
 
-                    print("Reading subject {0}, action {1}, subaction {2}".format(subj, action, 2))
+                    if verbose:
+                            print("Reading subject {0}, action {1}, subaction {2}".format(subj, action, 2))
                     filename = '{0}/S{1}/{2}_{3}.txt'.format(self.path_to_data, subj, action, 2)
                     the_sequence2 = data_utils.readCSVasFloat(filename)
                     n, d = the_sequence2.shape

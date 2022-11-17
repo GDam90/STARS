@@ -8,6 +8,15 @@ import os
 from utils import forward_kinematics
 import copy
 
+
+dim_used = np.array([0, 1, 2, 3, 4, 5, 18, 19, 20, 33, 34, 35, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25,
+                    26, 27, 28, 29, 30, 31, 32, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45,
+                    46, 47, 51, 52, 53, 54, 55, 56, 57, 58, 59, 63, 64, 65, 66, 67, 68,
+                    75, 76, 77, 78, 79, 80, 81, 82, 83, 87, 88, 89, 90, 91, 92])
+joint_to_ignore = np.array([16, 20, 23, 24, 28, 31])
+joint_equal = np.array([13, 19, 22, 13, 27, 30])
+
+
 def rotmat2euler(R):
     """
     Converts a rotation matrix to Euler angles
@@ -192,13 +201,6 @@ def revert_output_format(poses, data_mean, data_std, dim_to_ignore, actions, one
             unNormalizeData(poses_out[i, :, :], data_mean, data_std, dim_to_ignore, actions, one_hot))
 
     return poses_out_list
-
-
-dim_used = np.array([0, 1, 2, 3, 4, 5, 18, 19, 20, 33, 34, 35, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 21, 22, 23, 24, 25,
-                    26, 27, 28, 29, 30, 31, 32, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45,
-                    46, 47, 51, 52, 53, 54, 55, 56, 57, 58, 59, 63, 64, 65, 66, 67, 68,
-                    75, 76, 77, 78, 79, 80, 81, 82, 83, 87, 88, 89, 90, 91, 92])
-
 
 def readCSVasFloat(filename):
     """

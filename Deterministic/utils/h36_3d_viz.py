@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation as animation
 from utils.loss_funcs import final_mpjpe_error
-from utils.data_utils import define_actions
+from utils.data_utils import define_actions, joint_to_ignore, joint_equal
 import os
 
 
@@ -207,3 +207,99 @@ def visualize(input_n,output_n,visualize_from,path,modello,device,n_viz,skip_rat
             if cnt==n_viz-1:
                 break
 
+def my_visualize(modello, args):
+    
+    input_n = args.input_n
+    output_n = args.output_n
+    skip_rate = args.skip_rate
+    n_viz = args.n_viz
+    device = args.device
+    if args.viz_actions == 'all':
+        args.viz_actions = args.datasets.h36m.actions
+    visualize_from = args.visualize_from
+    modello = modello.to(device)
+    actions = args.viz_actions
+    
+    if not args.global_translation:
+        from utils import h36motion3d as datasets
+    else:
+        args.dim_used.sort()
+        from utils import h36motion3dab as datasets
+    
+    for action in actions:
+    
+        if visualize_from=='train':
+            loader=datasets.Datasets(args, split=0,actions=[action])
+        elif visualize_from=='val':
+            loader=datasets.Datasets(args, split=1,actions=[action])
+        elif visualize_from=='test':
+            loader=datasets.Datasets(args, split=2,actions=[action])
+            
+      # joints at same loc
+        index_to_ignore = np.concatenate((joint_to_ignore * args.data_dim, joint_to_ignore * args.data_dim + 1, joint_to_ignore * args.data_dim + 2))
+        index_to_equal = np.concatenate((joint_equal * args.data_dim, joint_equal * args.data_dim + 1, joint_equal * args.data_dim + 2))
+            
+            
+        loader = DataLoader(loader, batch_size=1, shuffle = False, num_workers=args.num_workers)       
+        
+            
+    
+        for cnt,batch in enumerate(loader): 
+            batch = batch.to(device) 
+            
+            all_joints_seq=batch.clone()[:, 0:input_n+output_n,:]
+            
+            sequences_train=batch[:, 0:input_n, args.dim_used].view(-1,input_n,len(args.dim_used)//3,3).permute(0,3,1,2)
+            sequences_gt=batch[:, 0:input_n+output_n, :]
+            
+            sequences_predict, _ = modello(sequences_train)
+            sequences_predict=sequences_predict.permute(0,1,3,2).contiguous().view(-1,output_n,len(args.dim_used))
+            
+            all_joints_seq[:,input_n:input_n+output_n,args.dim_used] = sequences_predict
+            
+            all_joints_seq[:,input_n:input_n+output_n,index_to_ignore] = all_joints_seq[:,input_n:input_n+output_n,index_to_equal]
+            
+            
+            all_joints_seq=all_joints_seq.view(-1,input_n+output_n,32,3)
+            
+            sequences_gt=sequences_gt.view(-1,input_n+output_n,32,3)
+               
+            data_pred=torch.squeeze(all_joints_seq,0).cpu().data.numpy()/1000 # in meters
+            data_gt=torch.squeeze(sequences_gt,0).cpu().data.numpy()/1000
+    
+    
+            fig = plt.figure()
+            ax = Axes3D(fig, auto_add_to_figure=False)
+            fig.add_axes(ax)
+            ax.view_init(elev=20, azim=-40)
+            vals = np.zeros((32, 3)) # or joints_to_consider
+            gt_plots=[]
+            pred_plots=[]
+    
+            gt_plots=create_pose(ax,gt_plots,vals,pred=False,update=False)
+            pred_plots=create_pose(ax,pred_plots,vals,pred=True,update=False)
+    
+            ax.set_xlabel("x")
+            ax.set_ylabel("y")
+            ax.set_zlabel("z")
+            ax.legend(loc='lower left')
+    
+    
+    
+            ax.set_xlim3d([-1, 1.5])
+            ax.set_xlabel('X')
+    
+            ax.set_ylim3d([-1, 1.5])
+            ax.set_ylabel('Y')
+    
+            ax.set_zlim3d([0.0, 1.5])
+            ax.set_zlabel('Z')
+    
+            line_anim = animation.FuncAnimation(fig, update, input_n + output_n, fargs=(data_gt,data_pred,gt_plots,pred_plots,
+                                                                       fig,ax,input_n),interval=70, blit=False)
+            
+            line_anim.save(os.path.join(args.viz_path, action, 'human_viz_{}.gif'.format(cnt + 1)), writer='pillow')
+    
+            plt.close()
+            if cnt==n_viz-1:
+                break
