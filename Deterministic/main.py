@@ -120,13 +120,13 @@ def train():
       
       model.eval()
       if (epoch + 1) % args.val_every == 0:
-        vald_error_on_test_frame = test(split="val", wandblog=False, )
+        vald_error_on_test_frame = test(split="val")
         val_loss.append(vald_error_on_test_frame)
         epoch_results['train/validation_MPJPE'] = vald_error_on_test_frame
         print('[%d, all]  validation loss: %.3f' %(epoch + 1, val_loss[-1]))
       
       if (epoch + 1) % args.test_every == 0:
-        test_error_on_test_frame = test(split="test", epoch=epoch)
+        test_error_on_test_frame = test(split="test", epoch=epoch, wandblog=True)
         epoch_results['train/test_MPJPE'] = test_error_on_test_frame
       
       if args.wandb:
@@ -254,11 +254,12 @@ if __name__ == '__main__':
 
     if args.mode == 'train':
       train()
+      test(tablelog=True)
     elif args.mode == 'test':
-      # test(tablelog=True)
+      test(tablelog=True)
       my_visualize(model, args)
     elif args.mode=='viz':
-      #  model.load_state_dict(torch.load(os.path.join(args.model_path, model_name)))
+       model.load_state_dict(args.best_path)
        model.eval()
        visualize(args.input_n,args.output_n,args.visualize_from,args.data_dir,model,device,args.n_viz,args.skip_rate,args.actions_to_consider,args.global_translation,model_name)
 
