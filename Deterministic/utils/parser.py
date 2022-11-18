@@ -87,7 +87,7 @@ parser.add_argument('--milestones', type=list, default=[15,25,35,40], help= 'the
 parser.add_argument('--metric', type=str, default='ours', choices=['ours', 'literature'], help= 'choose if use only dim_used for evaluation (ours) [ours.traditional]')
 parser.add_argument('--batch_size_test', type=int, default=256, help= 'batch size for the test set')
 parser.add_argument('--test_output_n', type=int, default=7, help="number of model's test frames")
-parser.add_argument('--eval_frames', default=[1, 3, 7, 9, 13, 17, 21, 24], help='frames on which to evaluate')
+parser.add_argument('--eval_frames', default=[2, 4, 8, 10, 14, 18, 22, 25], help='frames on which to evaluate')
 
 #FLAGS FOR THE VISUALIZATION
 
@@ -104,6 +104,7 @@ args.seq_len = args.input_n + args.output_n
 
 if args.dataset_name == 'h36m':
     args.num_joints = 22
+    args.num_tot_joints = 32
     args.data_dim = 3
     args.actions = [
         'walking',
