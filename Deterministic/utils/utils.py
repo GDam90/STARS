@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import time
 
+import matplotlib.pyplot as plt
 import pandas as pd
 from openpyxl import load_workbook
 from torch.utils.data import DataLoader
@@ -66,12 +67,15 @@ def set_paths(args):
     if args.val_every != 0:
         args.epoch_path = os.path.join(args.experiment_path, 'ckpt', args.name + '_e{}.pt')
     args.viz_path = os.path.join(args.experiment_path, 'gifs')
+    args.plot_path = os.path.join(args.experiment_path, 'plots')
     if not os.path.exists(args.experiment_path):
         os.mkdir(args.experiment_path)
     if not os.path.exists(os.path.join(args.experiment_path, 'config')):
         os.mkdir(os.path.join(args.experiment_path, 'config'))
     if not os.path.exists(os.path.join(args.experiment_path, 'ckpt')):
         os.mkdir(os.path.join(args.experiment_path, 'ckpt'))
+    if not os.path.exists(args.plot_path):
+        os.mkdir(args.plot_path)
     if not os.path.exists(args.viz_path):
         os.mkdir(args.viz_path)
         if args.dataset_name == 'h36m':
@@ -79,6 +83,26 @@ def set_paths(args):
                 os.mkdir(os.path.join(args.viz_path, action))
     return args
 
+def plot_losses(train_seq, val_seq, args):
+    
+    plt.figure()
+    plt.plot(train_seq, 'r', label='Train loss')
+    plt.savefig(os.path.join(args.plot_path, "train.png"))
+    plt.close()
+    
+    plt.figure()
+    plt.plot(val_seq, 'g', label='Val loss')
+    plt.legend()
+    plt.savefig(os.path.join(args.plot_path, "val.png"))
+    plt.close()
+    
+    plt.figure()
+    plt.plot(train_seq, 'r', label='Train loss')
+    plt.plot(val_seq, 'g', label='Val loss')
+    plt.legend()
+    plt.savefig(os.path.join(args.plot_path, "train_and_val.png"))
+    plt.close()
+    
 def line_prepender(filename, wandbURL):
     line = f'## See experiment at {wandbURL}\n\n'
     with open(filename, 'r+') as f:
