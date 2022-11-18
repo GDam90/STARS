@@ -112,14 +112,17 @@ def get_dataset_and_loader(args, split, return_dataset=False, actions=None, verb
         split = 0
         bs = args.batch_size
         shuffle = True
+        print("------------Train-------------")
     elif (split == 'val') or (split==1):
         split = 1
         bs = args.batch_size
         shuffle = False
+        print("------------Validation-------------")
     elif (split == 'test') or (split==2):
         split = 2
         bs = args.batch_size_test
         shuffle = False
+        print("------------Test-------------")
     dataset = datasets.Datasets(args, actions=actions, split=split, verbose=verbose)
     if verbose:
         print('>>> Training dataset length: {:d}'.format(dataset.__len__()))
@@ -131,8 +134,27 @@ def get_dataset_and_loader(args, split, return_dataset=False, actions=None, verb
 
 
 def save_results(res_dict, args):
-    
-    data = [[args.name, args.n_epochs, args.batch_size, str(args.input_n) + " - " + str(args.output_n), args.n_pre,
+    if args.pred_loss:
+        is_pred = args.coeff_pred
+    else:
+        is_pred = args.pred_loss
+    if args.reco_loss:
+        is_reco = args.coeff_reco
+    else:
+        is_reco = args.reco_loss
+    if args.vel_loss:
+        is_vel = args.coeff_vel
+    else:
+        is_vel = args.vel_loss
+    if args.avo_loss:
+        is_avo = args.coeff_avo
+    else:
+        is_avo = args.avo_loss
+    data = [[args.name, args.metric, args.n_epochs, args.batch_size, str(args.input_n) + " - " + str(args.output_n), args.n_pre,
+              is_pred,
+              is_reco,
+              is_vel,
+              is_avo,
               res_dict["walking"],
               res_dict["eating"],
               res_dict["smoking"],
@@ -149,26 +171,27 @@ def save_results(res_dict, args):
               res_dict["walkingdog"],
               res_dict["walkingtogether"],
               res_dict["average"]]] # all values to report
-    df = pd.DataFrame(data, columns=["name", "epochs", "batch size",  "in-out len", "dct", "walking", "eating", "smoking", "discussion", "directions",
+    df = pd.DataFrame(data, columns=["name", "metric", "epochs", "batch size",  "in-out len", "dct", "L_pred coeff", "L_reco coeff", "L_vel coeff", "L_avo coeff", "walking", "eating", "smoking", "discussion", "directions",
                                      "greeting", "phoning", "posing", "purchases", "sitting", "sittingdown",
                                      "takingphoto", "waiting", "walkingdog", "walkingtogether", "average"]) # dataframe to store results
     
+    sheet_name = args.dataset_name + '_' + args.metric
     if os.path.exists(args.table_path):
         FilePath = args.table_path
         ExcelWorkbook = load_workbook(FilePath)
         writer = pd.ExcelWriter(FilePath, engine = 'openpyxl')
         writer.book = ExcelWorkbook
         writer.sheets =  {ws.title: ws for ws in writer.book.worksheets}
-        if args.dataset_name not in writer.sheets:
-            ExcelWorkbook.create_sheet(title=args.dataset_name)
+        if sheet_name not in writer.sheets:
+            ExcelWorkbook.create_sheet(title=sheet_name)
             writer.sheets =  {ws.title: ws for ws in writer.book.worksheets}
-            startrow = writer.sheets[args.dataset_name].max_row
-            df.to_excel(writer, sheet_name=args.dataset_name, index = False, header= True)
+            startrow = writer.sheets[sheet_name].max_row
+            df.to_excel(writer, sheet_name=sheet_name, index = False, header= True)
         else:
-            startrow = writer.sheets[args.dataset_name].max_row
-            df.to_excel(writer, sheet_name=args.dataset_name, startrow = startrow, index = False, header= False)
+            startrow = writer.sheets[sheet_name].max_row
+            df.to_excel(writer, sheet_name=sheet_name, startrow = startrow, index = False, header= False)
         # startr,sheet_name=sheetname, startrow=writer.sheets[sheetname].max_row, index = False,header= False)
         writer.save()
         writer.close()
     else:
-        df.to_excel(args.table_path, sheet_name=args.dataset_name, index=False, header=True)
+        df.to_excel(args.table_path, sheet_name=sheet_name, index=False, header=True)
