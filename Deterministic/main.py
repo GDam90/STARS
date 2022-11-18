@@ -6,7 +6,7 @@ import torch.optim as optim
 import torch.autograd
 import torch
 import numpy as np
-from utils.data_utils import define_actions, joint_equal, joint_to_ignore
+from utils.data_utils import joint_equal, joint_to_ignore
 from utils.loss_funcs import *
 from utils.h36_3d_viz import visualize, my_visualize
 from utils.parser import args
@@ -50,25 +50,25 @@ def train():
         model.train()
         for iteration, batch in tqdm(enumerate(data_loader)): 
             batch=batch.to(device)
-            # [256, 35, 96]
+            # [B, 35, 96]
             batch_dim = batch.shape[0]
             n += batch_dim
             
-            sequences_train=batch[:, 0:args.input_n, args.dim_used].view(-1, args.input_n, args.num_joints, args.data_dim).permute(0,3,1,2)
-            # [256, 3, 10, 22]
-            sequences_gt=batch[:, args.input_n:args.seq_len, args.dim_used].view(-1, args.output_n, args.num_joints, args.data_dim)
-            # [256, 25, 22, 3]
+            sequences_train=batch[:, :args.input_n, args.dim_used].view(-1, args.input_n, args.num_joints, args.data_dim).permute(0,3,1,2)
+            # [B, 3, 10, 22]
+            sequences_gt=batch[:, args.input_n : args.seq_len, args.dim_used].view(-1, args.output_n, args.num_joints, args.data_dim)
+            # [B, 25, 22, 3]
             sequences_gt_all=batch[:, :args.seq_len, args.dim_used].view(-1, args.seq_len, args.num_joints, args.data_dim)
-            # [256, 35, 22, 3]
+            # [B, 35, 22, 3]
             
             optimizer.zero_grad() 
 
             sequences_predict, sequences_predict_all=model(sequences_train)
-            # [256, 25, 3, 22], [256, 35, 3, 22]
+            # [B, 25, 3, 22], [B, 35, 3, 22]
             sequences_predict = sequences_predict.permute(0,1,3,2)
-            # [256, 25, 22, 3]
+            # [B, 25, 22, 3]
             sequences_predict_all = sequences_predict_all.permute(0,1,3,2)
-            # [256, 35, 22, 3]
+            # [B, 35, 22, 3]
             loss = torch.tensor(0).float().to(args.device)
             log_dict = {}
             if args.pred_loss:
@@ -139,6 +139,7 @@ def train():
 
 def test(split="test", wandblog=False, tablelog=False, epoch=0):
   assert args.output_n >= args.test_output_n
+  assert split in ["train", "val", "test"], 'train should be in ["train", "val", "test"]'
   if args.load_checkpoint:
     model.load_state_dict(torch.load(args.best_path))
   # model.load_state_dict(torch.load('/media/odin/guide/STARS/checkpoints/CKPT_3D_H36M/h36_3d_10_25_2_35_long_ckpt_local'))
@@ -153,49 +154,55 @@ def test(split="test", wandblog=False, tablelog=False, epoch=0):
   idx_eval = args.test_output_n
   if tablelog:
     res_dict = {}
+  if split == "train":
+    print("------------Train-------------")
+  elif split == "val":
+    print("------------Validation-------------")
+  else:
+    print("------------Test-------------")
   
   for action in actions:
-    n=0
+    n = 0
     action_errors = np.zeros(len(args.eval_frames))
     test_loader = get_dataset_and_loader(args, split=split, actions=[action], verbose=False)
     
-    for iteration, batch in enumerate(test_loader):
+    for batch in test_loader:
         with torch.no_grad():
           
             batch=batch.to(device)
-            # [256, 35, 96]
+            # [B, 35, 96]
             batch_dim=batch.shape[0]
             n+=batch_dim
             
             all_joints_seq=batch.clone()[:, args.input_n:args.seq_len,:]
-            # [256, 25, 96]
+            # [B, 25, 96]
 
             sequences_train=batch[:, 0:args.input_n, args.dim_used].view(-1, args.input_n, args.num_joints, args.data_dim).permute(0,3,1,2)
-            # [256, 3, 10, 22]
+            # [B, 3, 10, 22]
             sequences_gt=batch[:, args.input_n:args.seq_len, :]
-            # [256, 25, 96]
+            # [B, 25, 96]
             
-            sequences_predict, _ =model(sequences_train)
-            # [256, 25, 3, 22]
+            sequences_predict, _ = model(sequences_train)
+            # [B, 25, 3, 22]
             sequences_predict = sequences_predict.permute(0,1,3,2).contiguous().view(-1,args.output_n, args.num_joints * args.data_dim)
-            # [256, 25, 66]
+            # [B, 25, 66]
             
-            all_joints_seq[:,:,args.dim_used] = sequences_predict
-            # [256, 25, 96]
+            all_joints_seq[:, :, args.dim_used] = sequences_predict
+            # [B, 25, 96]
 
-            all_joints_seq[:,:,index_to_ignore] = all_joints_seq[:,:,index_to_equal]
-            # [256, 25, 96]
+            all_joints_seq[:, :, index_to_ignore] = all_joints_seq[:,:,index_to_equal]
+            # [B, 25, 96]
             
             for k, frame in enumerate(args.eval_frames):
                   if args.metric == 'literature':
-                      prediction = all_joints_seq.view(-1,args.output_n,32,3)[:, :frame, :, :]
-                      gt = sequences_gt.view(-1,args.output_n,32,3)[:,:frame, :, :]
+                      prediction = all_joints_seq.view(-1, args.output_n, args.num_tot_joints, args.data_dim)[:, :frame, :, :]
+                      gt = sequences_gt.view(-1, args.output_n, args.num_tot_joints, args.data_dim)[:, :frame, :, :]
                       loss=final_mpjpe_error(prediction, gt)
                       action_errors[k] = loss.item() * batch_dim
                       MPJPE_errors[k] += loss.item() * batch_dim
                   elif args.metric == 'ours':
-                      prediction = all_joints_seq[:,:, args.dim_used].view(-1,args.output_n,22,3)[:,:frame, :, :]
-                      gt = sequences_gt[:,:, args.dim_used].view(-1,args.output_n,22,3)[:,:frame, :, :]
+                      prediction = all_joints_seq[:, :, args.dim_used].view(-1,args.output_n, args.num_joints, args.data_dim)[:,:frame, :, :]
+                      gt = sequences_gt[:, :, args.dim_used].view(-1,args.output_n, args.num_joints, args.data_dim)[:,:frame, :, :]
                       loss=final_mpjpe_error(prediction, gt)
                       action_errors[k] = loss.item() * batch_dim
                       MPJPE_errors[k] += loss.item() * batch_dim
@@ -234,15 +241,15 @@ def test(split="test", wandblog=False, tablelog=False, epoch=0):
 if __name__ == '__main__':
 
     if args.mode == 'train':
-      train()
-      test(tablelog=True)
+        train()
+        test(tablelog=True)
     elif args.mode == 'test':
-      test()
+        test(tablelog=True)
       # my_visualize(model, args)
     elif args.mode=='viz':
-       model.load_state_dict(args.best_path)
-       model.eval()
-       visualize(args.input_n,args.output_n,args.visualize_from,args.data_dir,model,device,args.n_viz,args.skip_rate,args.actions_to_consider,args.global_translation,model_name)
-
+        if args.load_checkpoint:
+            model.load_state_dict(args.best_path)
+        model.eval()
+        my_visualize(model, args)
 
 
