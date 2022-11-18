@@ -136,17 +136,14 @@ def get_dataset_and_loader(args, split, return_dataset=False, actions=None, verb
         split = 0
         bs = args.batch_size
         shuffle = True
-        print("------------Train-------------")
     elif (split == 'val') or (split==1):
         split = 1
         bs = args.batch_size
         shuffle = False
-        print("------------Validation-------------")
     elif (split == 'test') or (split==2):
         split = 2
         bs = args.batch_size_test
         shuffle = False
-        print("------------Test-------------")
     dataset = datasets.Datasets(args, actions=actions, split=split, verbose=verbose)
     if verbose:
         print('>>> Training dataset length: {:d}'.format(dataset.__len__()))
@@ -174,7 +171,7 @@ def save_results(res_dict, args):
         is_avo = args.coeff_avo
     else:
         is_avo = args.avo_loss
-    data = [[args.name, args.metric, args.n_epochs, args.batch_size, str(args.input_n) + " - " + str(args.output_n), args.n_pre,
+    data = [[args.name, args.n_epochs, args.batch_size, str(args.input_n) + " - " + str(args.output_n), args.n_pre,
               is_pred,
               is_reco,
               is_vel,
@@ -195,7 +192,7 @@ def save_results(res_dict, args):
               res_dict["walkingdog"],
               res_dict["walkingtogether"],
               res_dict["average"]]] # all values to report
-    df = pd.DataFrame(data, columns=["name", "metric", "epochs", "batch size",  "in-out len", "dct", "L_pred coeff", "L_reco coeff", "L_vel coeff", "L_avo coeff", "walking", "eating", "smoking", "discussion", "directions",
+    df = pd.DataFrame(data, columns=["name", "epochs", "batch size",  "in-out len", "dct", "L_pred coeff", "L_reco coeff", "L_vel coeff", "L_avo coeff", "walking", "eating", "smoking", "discussion", "directions",
                                      "greeting", "phoning", "posing", "purchases", "sitting", "sittingdown",
                                      "takingphoto", "waiting", "walkingdog", "walkingtogether", "average"]) # dataframe to store results
     
