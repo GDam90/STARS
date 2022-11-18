@@ -229,11 +229,11 @@ def my_visualize(modello, args):
     for action in actions:
     
         if visualize_from=='train':
-            loader=datasets.Datasets(args, split=0,actions=[action])
+            loader=datasets.Datasets(args, split=0,actions=[action], verbose=False)
         elif visualize_from=='val':
-            loader=datasets.Datasets(args, split=1,actions=[action])
+            loader=datasets.Datasets(args, split=1,actions=[action], verbose=False)
         elif visualize_from=='test':
-            loader=datasets.Datasets(args, split=2,actions=[action])
+            loader=datasets.Datasets(args, split=2,actions=[action], verbose=False)
             
       # joints at same loc
         index_to_ignore = np.concatenate((joint_to_ignore * args.data_dim, joint_to_ignore * args.data_dim + 1, joint_to_ignore * args.data_dim + 2))

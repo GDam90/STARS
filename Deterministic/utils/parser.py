@@ -18,11 +18,6 @@ parser.add_argument('--device', type=str, default="cuda:1", choices=['cpu', 'cud
 parser.add_argument('--data_dir',type=str,default='./Deterministic/data',help='path to the unziped dataset directories(H36m)')
 parser.add_argument('--root_dir',type=str,default='./checkpoints',help='path to the experiments folder')
 parser.add_argument('--table_path',type=str,default='./checkpoints/results.xlsx',help= 'directory with the models checkpoints ')
-###
-# parser.add_argument('--experiment_path',type=str,default='./checkpoints/{}/{}',help= 'directory with the models checkpoints ')
-# parser.add_argument('--ckpt_path',type=str,default='./checkpoints/{}',help= 'directory with the models checkpoints ')
-# parser.add_argument('--viz_path',type=str,default='./checkpoints/{}/gifs/{}',help= 'directory with the models checkpoints ')
-###
 
 
 #ARGS FOR LOADING THE DATASET
@@ -133,6 +128,7 @@ if args.dataset_name == 'h36m':
 if args.mode == 'test' or args.mode == 'viz':
     args.load_checkpoint = True
     args.wandb = False
+    args.debug = True
 else: 
     args.load_checkpoint = False
 
