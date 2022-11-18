@@ -23,16 +23,7 @@ print('total number of parameters of the network is: '+str(sum(p.numel() for p i
 model_name='h36_3d_'+str(args.input_n)+'_'+str(args.output_n)+'_'+str(args.skip_rate)+'_'+str(args.n_pre)+'_'+args.version+'_ckpt_'+['local','global'][args.global_translation]
 
 def train():
-    # dataset = datasets.Datasets(args.data_dir,args.input_n,args.output_n,args.skip_rate, split=0)
-    # print('>>> Training dataset length: {:d}'.format(dataset.__len__()))
-    # data_loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=True)
-
     data_loader = get_dataset_and_loader(args=args, split='train', actions=args.actions)
-    # vald_dataset = datasets.Datasets(args.data_dir,args.input_n,args.output_n,args.skip_rate, split=1)
-    # print('>>> Validation dataset length: {:d}'.format(vald_dataset.__len__()))
-    # vald_loader = DataLoader(vald_dataset, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=True)
-
-    # vald_loader = get_dataset_and_loader(args=args, split='val', actions=args.actions)
 
     optimizer=optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     
@@ -59,14 +50,14 @@ def train():
       for iteration, batch in tqdm(enumerate(data_loader)): 
           batch=batch.to(device)
           # [256, 35, 96]
-          batch_dim=batch.shape[0]
-          n+=batch_dim
+          batch_dim = batch.shape[0]
+          n += batch_dim
           
           sequences_train=batch[:, 0:args.input_n, args.dim_used].view(-1, args.input_n, args.num_joints, args.data_dim).permute(0,3,1,2)
           # [256, 3, 10, 22]
-          sequences_gt=batch[:, args.input_n:args.input_n+args.output_n, args.dim_used].view(-1, args.output_n, args.num_joints, args.data_dim)
+          sequences_gt=batch[:, args.input_n:args.seq_len, args.dim_used].view(-1, args.output_n, args.num_joints, args.data_dim)
           # [256, 25, 22, 3]
-          sequences_gt_all=batch[:, :args.input_n+args.output_n, args.dim_used].view(-1, args.input_n+args.output_n, args.num_joints, args.data_dim)
+          sequences_gt_all=batch[:, :args.seq_len, args.dim_used].view(-1, args.seq_len, args.num_joints, args.data_dim)
           # [256, 35, 22, 3]
           
           optimizer.zero_grad() 
@@ -88,11 +79,11 @@ def train():
             loss += args.coeff_reco * fullmotion_loss
             log_dict["train/reconstruction"] = fullmotion_loss.item()
           if args.vel_loss:
-            vel_loss = velocity_loss(sequences_predict, sequences_gt, args)
+            vel_loss = velocity_loss(sequences_predict_all,sequences_gt_all, args)
             loss += args.coeff_vel * vel_loss
-            log_dict["train/velocity"] = vel_loss.item()
+            log_dict["train/velocity"] = vel_loss.item() 
           if args.avo_loss:
-            avo_loss_ = avo_loss(sequences_predict, sequences_gt)
+            avo_loss_ = avo_loss(sequences_predict, sequences_gt, epoch, args)
             loss += args.coeff_avo * avo_loss_
             log_dict["train/avo"] = avo_loss_.item()
           log_dict["train/total_loss"] = loss.item()
@@ -150,8 +141,9 @@ def train():
 
 def test(split="test", wandblog=False, tablelog=False, epoch=0):
   assert args.output_n >= args.test_output_n
-  # if args.load_checkpoint:
-  #   model.load_state_dict(torch.load(args.best_path))
+  if args.load_checkpoint:
+    model.load_state_dict(torch.load(args.best_path))
+  # model.load_state_dict(torch.load('/media/odin/guide/STARS/checkpoints/CKPT_3D_H36M/h36_3d_10_25_2_35_long_ckpt_local'))
   model.eval()
   n_batches = 0 # number of batches for all the sequences
   actions = args.actions
@@ -177,12 +169,12 @@ def test(split="test", wandblog=False, tablelog=False, epoch=0):
         batch_dim=batch.shape[0]
         n+=batch_dim
         
-        all_joints_seq=batch.clone()[:, args.input_n:args.input_n+args.output_n,:]
+        all_joints_seq=batch.clone()[:, args.input_n:args.seq_len,:]
         # [256, 25, 96]
 
         sequences_train=batch[:, 0:args.input_n, args.dim_used].view(-1, args.input_n, args.num_joints, args.data_dim).permute(0,3,1,2)
         # [256, 3, 10, 22]
-        sequences_gt=batch[:, args.input_n:args.input_n+args.output_n, :]
+        sequences_gt=batch[:, args.input_n:args.seq_len, :]
         # [256, 25, 96]
         
         sequences_predict, _ =model(sequences_train)
@@ -256,7 +248,7 @@ if __name__ == '__main__':
       test(tablelog=True)
     elif args.mode == 'test':
       test(tablelog=True)
-      my_visualize(model, args)
+      # my_visualize(model, args)
     elif args.mode=='viz':
        model.load_state_dict(args.best_path)
        model.eval()
