@@ -109,13 +109,7 @@ class ConvTemporalGraphicalEnhanced(nn.Module):
         self.T=nn.Parameter(torch.FloatTensor(joints_dim, time_dim, time_dim)) 
         stdv = 1. / math.sqrt(self.T.size(1))
         self.T.data.uniform_(-stdv,stdv)
-        '''
-        self.prelu = nn.PReLU()
         
-        self.Z=nn.Parameter(torch.FloatTensor(joints_dim, joints_dim, time_dim, time_dim)) 
-        stdv = 1. / math.sqrt(self.Z.size(2))
-        self.Z.data.uniform_(-stdv,stdv)
-        '''
         self.A_s = torch.zeros((1,joints_dim,joints_dim), requires_grad=False)
         for i, dim in enumerate(dim_used):
             self.A_s[0][i][i] = 1
@@ -130,7 +124,7 @@ class ConvTemporalGraphicalEnhanced(nn.Module):
                 if right_dim in dim_used:
                     self.A_s[0][i][right_index] = 1
                     self.A_s[0][right_index][i] = 1
-        self.T_s = torch.zeros((1,time_dim,time_dim), requires_grad=False)
+        self.T_s = torch.zeros((1, time_dim, time_dim), requires_grad=False)
         if version == 'long':
             for i in range(time_dim):
                 if i > 0:
@@ -226,7 +220,6 @@ class ST_GCNN_layer(nn.Module):
         
         self.prelu = nn.PReLU()
 
-        
 
     def forward(self, x):
      #   assert A.shape[0] == self.kernel_size[1], print(A.shape[0],self.kernel_size)
@@ -262,14 +255,16 @@ class Model(nn.Module):
                  version='long'):
         
         super(Model,self).__init__()
-        self.input_time_frame=input_time_frame
-        self.output_time_frame=output_time_frame
+        self.input_time_frame = input_time_frame
+        self.output_time_frame = output_time_frame
         dim_used = sorted([dim_used[i] // 3 for i in range(0, dim_used.shape[0], 3)])
         joints_to_consider=len(dim_used)
         self.joints_to_consider=joints_to_consider
         self.st_gcnns=nn.ModuleList()
-        self.st_gcnns.append(ST_GCNN_layer(input_channels,128,[3,1],1,n_pre,
-                                           joints_to_consider,st_gcnn_dropout,version='full',dim_used=dim_used))
+        
+        
+        self.st_gcnns.append(ST_GCNN_layer(input_channels, 128, [3,1], 1, n_pre,
+                                           joints_to_consider, st_gcnn_dropout, version='full', dim_used=dim_used))
 
         self.st_gcnns.append(ST_GCNN_layer(128,64,[3,1],1,n_pre,
                                                joints_to_consider,st_gcnn_dropout,version=version,dim_used=dim_used))
@@ -303,6 +298,92 @@ class Model(nn.Module):
                                                joints_to_consider,st_gcnn_dropout,version='full',dim_used=dim_used))  
         self.st_gcnns[-1].gcn.A = self.st_gcnns[0].gcn.A    
 
+        self.dct_m, self.idct_m = self.get_dct_matrix(self.input_time_frame + self.output_time_frame)
+        self.n_pre = n_pre
+
+    def get_dct_matrix(self, N, is_torch=True):
+        dct_m = np.eye(N)
+        for k in np.arange(N):
+            for i in np.arange(N):
+                w = np.sqrt(2 / N)
+                if k == 0:
+                    w = np.sqrt(1 / N)
+                dct_m[k, i] = w * np.cos(np.pi * (i + 1 / 2) * k / N)
+        idct_m = np.linalg.inv(dct_m)
+        if is_torch:
+            dct_m = torch.from_numpy(dct_m)
+            idct_m = torch.from_numpy(idct_m)
+        return dct_m, idct_m     
+
+    def forward(self, x):
+        idx_pad = list(range(self.input_time_frame)) + [self.input_time_frame - 1] * self.output_time_frame
+        y = torch.zeros((x.shape[0], x.shape[1], self.output_time_frame, x.shape[3])).to(x.device)
+        inp = torch.cat([x, y], dim=2).permute(0, 2, 1, 3)
+        N, T, C, V = inp.shape
+        dct_m = self.dct_m.to(x.device).float()
+        idct_m = self.idct_m.to(x.device).float()
+        inp = inp.reshape([N, T, C * V])
+        inp = torch.matmul(dct_m[:self.n_pre], inp[:, idx_pad, :]).reshape([N, -1, C, V]).permute(0, 2, 1, 3)
+        res = inp
+        x = inp
+
+        for gcn in (self.st_gcnns):
+            x = gcn(x)
+
+        x += res
+        x = x.permute(0, 2, 1, 3).reshape([N, -1, C * V])
+        x_re = torch.matmul(idct_m[:, :self.n_pre], x).reshape([N, T, C, V])
+        x = x_re
+        
+        return x[:, self.input_time_frame:], x_re
+
+
+class my_Model(nn.Module):
+    """ 
+    Shape:
+        - Input[0]: Input sequence in :math:`(N, in_channels,T_in, V)` format
+        - Output[0]: Output sequence in :math:`(N,T_out,in_channels, V)` format
+        where
+            :math:`N` is a batch size,
+            :math:`T_{in}/T_{out}` is a length of input/output sequence,
+            :math:`V` is the number of graph nodes. 
+            :in_channels=number of channels for the coordiantes(default=3)
+    """
+
+    def __init__(self,
+                 args):
+        
+        super(my_Model,self).__init__()
+        
+        self.input_time_frame = args.input_n
+        self.output_time_frame = args.output_n
+        joints_used = args.dim_used
+        dim_used = sorted([joints_used[i] // 3 for i in range(0, joints_used.shape[0], 3)])
+        n_joints=len(dim_used)
+        self.n_joints=n_joints
+        input_channels = args.data_dim
+        st_gcnn_dropout = args.st_gcnn_dropout
+        n_pre = args.n_pre
+        version = args.version
+        self.st_gcnns=nn.ModuleList()
+        
+        n_layers = len(args.layers)
+        shared_layers = args.shared_As
+        for n, gcn_layer in enumerate(args.layers):
+            if (n == 0) or (n == n_layers):
+                version = 'full'
+            else:
+                version = args.version
+            self.st_gcnns.append(ST_GCNN_layer(gcn_layer[0], gcn_layer[1], [3,1], 1, n_pre,
+                                 n_joints, st_gcnn_dropout, version=version, dim_used=dim_used))
+        
+        for shared in shared_layers:
+            if len(shared) == 1:
+                continue
+            else:
+                for similar_layer in range(1, len(shared)):
+                    self.st_gcnns[similar_layer].gcn.A = self.st_gcnns[shared[0]].gcn.A
+                
         self.dct_m, self.idct_m = self.get_dct_matrix(self.input_time_frame + self.output_time_frame)
         self.n_pre = n_pre
 
