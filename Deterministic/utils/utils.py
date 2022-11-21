@@ -9,6 +9,7 @@ import pandas as pd
 from openpyxl import load_workbook
 from torch.utils.data import DataLoader
 
+basic_layers = [[3, 128], [128, 64], [64, 128], [128, 64], [64, 128], [128, 64], [64, 128], [128, 3]]
 
 def set_seed(args):
     random.seed(args.seed)

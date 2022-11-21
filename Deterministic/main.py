@@ -8,20 +8,20 @@ import torch
 import numpy as np
 from utils.data_utils import joint_equal, joint_to_ignore
 from utils.loss_funcs import *
-from utils.h36_3d_viz import visualize, my_visualize
+from utils.h36_3d_viz import my_visualize
 from utils.parser import args
 from tqdm import tqdm
-from model import Model
+from model import my_Model as Model
 from utils.utils import get_dataset_and_loader, line_prepender, save_results
 from utils.utils import plot_losses
 
 device = args.device
 print('Using device: %s'%device)
 
-model = Model(3,args.input_n,
-                          args.output_n,args.st_gcnn_dropout,args.dim_used,args.n_pre,args.version).to(device)
+# model = Model(3,args.input_n,
+#                           args.output_n,args.st_gcnn_dropout,args.dim_used,args.n_pre,args.version).to(device)
+model = Model(args).to(device)
 print('total number of parameters of the network is: '+str(sum(p.numel() for p in model.parameters() if p.requires_grad)))
-model_name='h36_3d_'+str(args.input_n)+'_'+str(args.output_n)+'_'+str(args.skip_rate)+'_'+str(args.n_pre)+'_'+args.version+'_ckpt_'+['local','global'][args.global_translation]
 
 def train():
     data_loader = get_dataset_and_loader(args=args, split='train', actions=args.actions)
@@ -63,7 +63,7 @@ def train():
             
             optimizer.zero_grad() 
 
-            sequences_predict, sequences_predict_all=model(sequences_train)
+            sequences_predict, sequences_predict_all = model(sequences_train)
             # [B, 25, 3, 22], [B, 35, 3, 22]
             sequences_predict = sequences_predict.permute(0,1,3,2)
             # [B, 25, 22, 3]

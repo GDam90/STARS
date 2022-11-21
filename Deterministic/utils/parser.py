@@ -1,6 +1,7 @@
 import argparse
-from utils.utils import set_name, set_paths, write_config
+from utils.utils import set_name, set_paths, write_config, basic_layers
 from utils.data_utils import dim_used
+
 parser = argparse.ArgumentParser(description='Arguments for running the scripts')
 
 
@@ -34,6 +35,8 @@ parser.add_argument('--num_workers', type=int, default=0, help='number of worker
 #ARGS FOR THE MODEL
 
 parser.add_argument('--st_gcnn_dropout', type=float, default=.1, help= 'st-gcnn dropout')
+parser.add_argument('--layers', default=basic_layers, help= 'list of GCN layers [in, out] dimensions')
+parser.add_argument("--shared_As", default=[[0, 7], [1, 3, 5], [2, 4, 6]], help= 'list of shared GCN layers')
 
 
 #ARGS FOR THE TRAINING
@@ -134,7 +137,7 @@ if args.mode == 'test' or args.mode == 'viz':
 else: 
     args.load_checkpoint = False
 
-if not args.debug:
+if (not args.debug):
     args = set_name(args)
     args = set_paths(args)
     write_config(args)
